@@ -1,3 +1,7 @@
+using PenjualanUMKM.Models;
+using Microsoft.EntityFrameworkCore;
+using PenjualanUMKM.Context;
+
 namespace PenjualanUMKM
 {
     public class Program
@@ -7,6 +11,7 @@ namespace PenjualanUMKM
             var builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
+            builder.Services.AddDbContext<DataContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("conString")));
 
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
