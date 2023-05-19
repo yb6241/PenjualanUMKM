@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PenjualanUMKM.Context;
 using PenjualanUMKM.Models;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace PenjualanUMKM.Controllers
 {
@@ -53,6 +55,7 @@ namespace PenjualanUMKM.Controllers
 
             if (users == null)
             {
+                user.password = MD5Encryption(user.password);//encrypt md5
                 _db.Users.Add(user);
                 await _db.SaveChangesAsync();
 
@@ -73,6 +76,7 @@ namespace PenjualanUMKM.Controllers
                 return BadRequest();
             }
 
+            user.password = MD5Encryption(user.password);//encrypt md5
             _db.Entry(user).State = EntityState.Modified;
 
             try
@@ -117,6 +121,37 @@ namespace PenjualanUMKM.Controllers
         private bool UserExist(int Id)
         {
             return (_db.Users?.Any(e => e.Id == Id)).GetValueOrDefault();
+        }
+
+        public static string MD5Encryption(string encryptionText)
+        {
+            MD5CryptoServiceProvider md5 = new MD5CryptoServiceProvider();
+            byte[] array = Encoding.UTF8.GetBytes(encryptionText);
+            array = md5.ComputeHash(array);
+            StringBuilder sb = new StringBuilder();
+
+            foreach (byte ba in array)
+            {
+                sb.Append(ba.ToString("x2").ToLower());
+            }
+            return sb.ToString();
+        }
+
+        [HttpPost, Route("[action]", Name = "Login")]
+        public async Task<ActionResult<User>> Login(string username, string password)
+        {
+            if (_db.Users == null)
+            {
+                return NotFound();
+            }
+
+            var user = await _db.Users.FirstOrDefaultAsync(pro => pro.username == username && pro.password == MD5Encryption(password));
+
+            if (user == null)
+            {
+                return NotFound();
+            }
+            return user;
         }
     }
 }
