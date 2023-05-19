@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using PenjualanUMKM.Context;
 using PenjualanUMKM.Models;
@@ -24,7 +25,16 @@ namespace PenjualanUMKM.Controllers
             {
                 return NotFound();
             }
-            return await _db.Produks.ToListAsync();
+
+            try
+            {
+                string StoredProc = "exec Usp_GetData " + "@tablename = Produk";
+                return await _db.Produks.FromSqlRaw(StoredProc).ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
         }
 
         [HttpGet("{kodeProduk}")]
@@ -34,34 +44,62 @@ namespace PenjualanUMKM.Controllers
             {
                 return NotFound();
             }
-            var produk = await _db.Produks.FirstOrDefaultAsync(pro => pro.kodeProduk == kodeProduk);
 
-            if(produk == null)
+            try
             {
-                return NotFound();
+                string StoredProc = "exec Usp_GetDatabyId " + "@tablename = 'Produk', @id= '" + kodeProduk + "'";
+                var produk = await _db.Produks.FromSqlRaw(StoredProc).ToListAsync();
+
+                if (produk == null)
+                {
+                    return NotFound();
+                }
+                return produk.FirstOrDefault();
             }
-            return produk;
+            catch (Exception ex)
+            {
+                throw ex;
+            }
         }
 
         [HttpPost]
         public async Task<ActionResult<Produk>> PostProduk(Produk produk)
         {
             if (produk == null)
+            {
                 return BadRequest(ModelState);
-
-            var produks = await _db.Produks.FirstOrDefaultAsync(p => p.kodeProduk == produk.kodeProduk);
-
-            if (produks == null)
-            {
-                _db.Produks.Add(produk);
-                await _db.SaveChangesAsync();
-
-                return CreatedAtAction(nameof(GetProduk), new { kp = produk.kodeProduk }, produk);
             }
-            else
+
+            try
             {
-                ModelState.AddModelError("", "Produk already Exist");
-                return StatusCode(500, ModelState);
+                if (!ProdukExist(produk.kodeProduk))
+                {
+                    var parameter = new List<SqlParameter>();
+                    parameter.Add(new SqlParameter("@kodeProduk", produk.kodeProduk));
+                    parameter.Add(new SqlParameter("@namaProduk", produk.namaProduk));
+                    parameter.Add(new SqlParameter("@hargaProduk", produk.hargaProduk));
+
+                    var result = await Task.Run(() => _db.Database
+                   .ExecuteSqlRawAsync(@"exec Usp_InsertProduk @kodeProduk, @namaProduk, @hargaProduk", parameter.ToArray()));
+
+                    return CreatedAtAction(nameof(GetProduk), new { kp = produk.kodeProduk }, produk);
+                }
+                else
+                {
+                    ModelState.AddModelError("", "Produk already Exist");
+                    return StatusCode(500, ModelState);
+                }
+            }
+            catch (Exception ex)
+            {
+                if (!ProdukExist(produk.kodeProduk))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw ex;
+                }
             }
         }
 
@@ -73,13 +111,19 @@ namespace PenjualanUMKM.Controllers
                 return BadRequest();
             }
 
-            _db.Entry(produk).State = EntityState.Modified;
-
             try
             {
-                await _db.SaveChangesAsync();
+                var parameter = new List<SqlParameter>();
+                parameter.Add(new SqlParameter("@kodeProduk", produk.kodeProduk));
+                parameter.Add(new SqlParameter("@namaProduk", produk.namaProduk));
+                parameter.Add(new SqlParameter("@hargaProduk", produk.hargaProduk));
+
+                var result = await Task.Run(() => _db.Database
+                .ExecuteSqlRawAsync(@"exec Usp_UpdateProduk @kodeProduk, @namaProduk, @hargaProduk", parameter.ToArray()));
+
+                return CreatedAtAction(nameof(GetProduk), new { kp = produk.kodeProduk }, produk);
             }
-            catch (DbUpdateConcurrencyException)
+            catch (Exception ex)
             {
                 if (!ProdukExist(kodeProduk))
                 {
@@ -87,11 +131,9 @@ namespace PenjualanUMKM.Controllers
                 }
                 else
                 {
-                    throw;
+                    throw ex;
                 }
             }
-
-            return NoContent();
         }
 
         [HttpDelete("{kodeProduk}")]
@@ -108,8 +150,15 @@ namespace PenjualanUMKM.Controllers
                 return NotFound();
             }
 
-            _db.Produks.Remove(produk);
-            await _db.SaveChangesAsync();
+            try
+            {
+                _db.Produks.Remove(produk);
+                await _db.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
 
             return NoContent();
         }

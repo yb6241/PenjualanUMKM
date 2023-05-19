@@ -11,6 +11,7 @@ namespace PenjualanUMKM.Context
         public DbSet<Antrian> Antrians { get; set; }
         public DbSet<Penjualan> Penjualans { get; set; }
         public DbSet<Transaksi> Transaksis { get; set; }
+        public DbSet<User> Users { get; set; }
         public DataContext(DbContextOptions<DataContext> options) : base(options) { }
     }
 }
